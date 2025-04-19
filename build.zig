@@ -3,7 +3,7 @@ const std = @import("std");
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
 // runner.
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     // Standard target options allows the person running `zig build` to choose
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
@@ -60,7 +60,7 @@ pub fn build(b: *std.Build) void {
 
     // This creates another `std.Build.Step.Compile`, but this one builds an executable
     // rather than a static library.
-    const exe = b.addExecutable(.{
+    const zemml_exe = b.addExecutable(.{
         .name = "zemml",
         .root_module = exe_mod,
     });
@@ -68,12 +68,12 @@ pub fn build(b: *std.Build) void {
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
-    b.installArtifact(exe);
+    b.installArtifact(zemml_exe);
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
     // such a dependency.
-    const run_cmd = b.addRunArtifact(exe);
+    const run_cmd = b.addRunArtifact(zemml_exe);
 
     // By making the run step depend on the install step, it will be run from the
     // installation directory rather than directly from within the cache directory.
@@ -90,27 +90,89 @@ pub fn build(b: *std.Build) void {
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build run`
     // This will evaluate the `run` step rather than the default, which is "install".
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+    const run_zemml = b.step("run", "Run zemml");
+    run_zemml.dependOn(&run_cmd.step);
+
+    try setupSnapshotTesting(b, zemml_exe);
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
-    const lib_unit_tests = b.addTest(.{
-        .root_module = lib_mod,
-    });
+    // const lib_unit_tests = b.addTest(.{
+    //     .root_module = lib_mod,
+    // });
 
-    const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+    // const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
-    const exe_unit_tests = b.addTest(.{
-        .root_module = exe_mod,
-    });
+    // const exe_unit_tests = b.addTest(.{
+    //     .root_module = exe_mod,
+    // });
 
-    const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+    // const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
 
     // Similar to creating the run step earlier, this exposes a `test` step to
     // the `zig build --help` menu, providing a way for the user to request
     // running the unit tests.
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
-    test_step.dependOn(&run_exe_unit_tests.step);
+    // const test_step = b.step("test", "Run unit tests");
+    // test_step.dependOn(&run_lib_unit_tests.step);
+    // test_step.dependOn(&run_exe_unit_tests.step);
+}
+
+fn setupSnapshotTesting(
+    b: *std.Build,
+    zemml_exe: *std.Build.Step.Compile,
+) !void {
+    var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const arena = arena_allocator.allocator();
+    defer arena_allocator.deinit();
+
+    const test_step = b.step("test", "build snapshot tests and diff the results");
+
+    const diff = b.addSystemCommand(&.{
+        "git",
+        "diff",
+        "--cached",
+        "--exit-code",
+    });
+    diff.addDirectoryArg(b.path("tests"));
+    diff.setName("git diff tests/");
+    test_step.dependOn(&diff.step);
+
+    // We need to stage all of tests/ in order for untracked files to show up in
+    // the diff. It's also not a bad automatism since it avoids the problem of
+    // forgetting to stage new snapshot files.
+    const git_add = b.addSystemCommand(&.{ "git", "add" });
+    git_add.addDirectoryArg(b.path("tests/"));
+    git_add.setName("git add tests/");
+    diff.step.dependOn(&git_add.step);
+
+    {
+        const tests_dir = try b.build_root.handle.openDir("tests/parse_ast", .{
+            .iterate = true,
+        });
+
+        var it = tests_dir.iterateAssumeFirstIteration();
+        while (try it.next()) |entry| {
+            if (entry.kind != .file) continue;
+            const src_path = b.pathJoin(&.{ "tests/parse_ast", entry.name });
+
+            _ = arena_allocator.reset(.retain_capacity);
+
+            const snap_name = try std.fmt.allocPrint(arena, "{s}.snapshot.txt", .{entry.name});
+            const snap_path = b.pathJoin(&.{ "tests/parse_ast", "snapshots", snap_name });
+            const input_arg = try std.fmt.allocPrint(arena, "--input={s}", .{src_path});
+            // const output_arg = try std.fmt.allocPrint(arena, "--output={s}", .{snap_path});
+
+            const run_zemml = b.addRunArtifact(zemml_exe);
+            run_zemml.addArg(input_arg);
+            // run_zemml.addArg(output_arg);
+            run_zemml.has_side_effects = true;
+
+            const stdout = run_zemml.captureStdOut();
+            const update_snap = b.addUpdateSourceFiles();
+            update_snap.addCopyFileToSource(stdout, snap_path);
+
+            update_snap.step.dependOn(&run_zemml.step);
+            git_add.step.dependOn(&update_snap.step);
+        }
+    }
 }
