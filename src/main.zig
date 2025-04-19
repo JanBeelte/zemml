@@ -7,6 +7,8 @@ const std = @import("std");
 /// This imports the separate module containing `root.zig`. Take a look in `build.zig` for details.
 const lib = @import("zemml_lib");
 
+const arg_parse = @import("arg_parse.zig");
+
 pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
     // std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
@@ -18,18 +20,37 @@ pub fn main() !void {
     var alloc = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = alloc.deinit();
     const gpa = alloc.allocator();
+    const args = try std.process.argsAlloc(gpa);
+    defer std.process.argsFree(gpa, args);
 
-    const stdin = std.io.getStdIn().reader();
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    const arg_parser = arg_parse.ArgParser.parse(args[1..]);
 
-    const input = try stdin.readAllAlloc(gpa, 1024 * 1024);
+    var input: []u8 = undefined;
+    if (arg_parser.input_file_path) |input_file_path| {
+        const file = try std.fs.cwd().openFile(input_file_path, .{});
+        defer file.close();
+        const reader = file.reader();
+        input = try reader.readAllAlloc(gpa, std.math.maxInt(usize));
+    } else {
+        const reader = std.io.getStdIn().reader();
+        input = try reader.readAllAlloc(gpa, std.math.maxInt(usize));
+    }
     defer gpa.free(input);
-    try stdout.writeAll(input);
-    // try stdout.print("Run `zig build test` to run the tests.\n", .{});
 
-    try bw.flush(); // Don't forget to flush!
+    if (arg_parser.output_file_path) |output_file_path| {
+        var file = try std.fs.cwd().createFile(output_file_path, .{});
+        defer file.close();
+        var bw = std.io.bufferedWriter(file.writer());
+        const writer = bw.writer();
+        try writer.writeAll(input);
+        try bw.flush();
+    } else {
+        const stdout_file = std.io.getStdOut().writer();
+        var bw = std.io.bufferedWriter(stdout_file);
+        const writer = bw.writer();
+        try writer.writeAll(input);
+        try bw.flush();
+    }
 }
 
 test "simple test" {
