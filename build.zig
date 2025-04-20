@@ -93,7 +93,7 @@ pub fn build(b: *std.Build) !void {
     const run_zemml = b.step("run", "Run zemml");
     run_zemml.dependOn(&run_cmd.step);
 
-    try setupSnapshotTesting(b, zemml_exe);
+    try setupSnapshotTesting(b, target, zemml_exe);
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.
@@ -119,13 +119,20 @@ pub fn build(b: *std.Build) !void {
 
 fn setupSnapshotTesting(
     b: *std.Build,
+    target: std.Build.ResolvedTarget,
     zemml_exe: *std.Build.Step.Compile,
 ) !void {
     var arena_allocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    const arena = arena_allocator.allocator();
     defer arena_allocator.deinit();
 
     const test_step = b.step("test", "build snapshot tests and diff the results");
+
+    const camera = b.addExecutable(.{
+        .name = "camera",
+        .root_source_file = b.path("src/build/camera.zig"),
+        .target = target,
+        .optimize = .ReleaseFast,
+    });
 
     const diff = b.addSystemCommand(&.{
         "git",
@@ -145,34 +152,63 @@ fn setupSnapshotTesting(
     git_add.setName("git add tests/");
     diff.step.dependOn(&git_add.step);
 
-    {
-        const tests_dir = try b.build_root.handle.openDir("tests/parse_ast", .{
-            .iterate = true,
-        });
+    try setupSnapshotTestFolder(
+        &arena_allocator,
+        b,
+        camera,
+        zemml_exe,
+        git_add,
+        "tests/parse_ast",
+        "--format=ast",
+    );
+    try setupSnapshotTestFolder(
+        &arena_allocator,
+        b,
+        camera,
+        zemml_exe,
+        git_add,
+        "tests/mathml",
+        "--format=mathml",
+    );
+}
 
-        var it = tests_dir.iterateAssumeFirstIteration();
-        while (try it.next()) |entry| {
-            if (entry.kind != .file) continue;
-            const src_path = b.pathJoin(&.{ "tests/parse_ast", entry.name });
+fn setupSnapshotTestFolder(
+    arena: *std.heap.ArenaAllocator,
+    b: *std.Build,
+    camera: *std.Build.Step.Compile,
+    zemml_exe: *std.Build.Step.Compile,
+    git_add: *std.Build.Step.Run,
+    test_path: []const u8,
+    format_arg: []const u8,
+) !void {
+    const tests_dir = try b.build_root.handle.openDir(test_path, .{
+        .iterate = true,
+    });
 
-            _ = arena_allocator.reset(.retain_capacity);
+    var it = tests_dir.iterateAssumeFirstIteration();
+    while (try it.next()) |entry| {
+        if (entry.kind != .file) continue;
+        const src_path = b.pathJoin(&.{ test_path, entry.name });
 
-            const snap_name = try std.fmt.allocPrint(arena, "{s}.snapshot.txt", .{entry.name});
-            const snap_path = b.pathJoin(&.{ "tests/parse_ast", "snapshots", snap_name });
-            const input_arg = try std.fmt.allocPrint(arena, "--input={s}", .{src_path});
-            // const output_arg = try std.fmt.allocPrint(arena, "--output={s}", .{snap_path});
+        _ = arena.reset(.retain_capacity);
 
-            const run_zemml = b.addRunArtifact(zemml_exe);
-            run_zemml.addArg(input_arg);
-            // run_zemml.addArg(output_arg);
-            run_zemml.has_side_effects = true;
+        const snap_name = try std.fmt.allocPrint(arena.allocator(), "{s}.snapshot.txt", .{entry.name});
+        const snap_path = b.pathJoin(&.{ test_path, "snapshots", snap_name });
+        const input_arg = try std.fmt.allocPrint(arena.allocator(), "--input={s}", .{src_path});
+        // const output_arg = try std.fmt.allocPrint(arena.allocator(), "--output={s}", .{snap_path});
 
-            const stdout = run_zemml.captureStdOut();
-            const update_snap = b.addUpdateSourceFiles();
-            update_snap.addCopyFileToSource(stdout, snap_path);
+        const run_camera = b.addRunArtifact(camera);
+        run_camera.addArtifactArg(zemml_exe);
+        run_camera.addArg(input_arg);
+        run_camera.addArg(format_arg);
+        // run_camera.addArg(output_arg);
+        run_camera.has_side_effects = true;
 
-            update_snap.step.dependOn(&run_zemml.step);
-            git_add.step.dependOn(&update_snap.step);
-        }
+        const stdout = run_camera.captureStdErr();
+        const update_snap = b.addUpdateSourceFiles();
+        update_snap.addCopyFileToSource(stdout, snap_path);
+
+        update_snap.step.dependOn(&run_camera.step);
+        git_add.step.dependOn(&update_snap.step);
     }
 }

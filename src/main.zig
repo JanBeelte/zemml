@@ -25,6 +25,8 @@ pub fn main() !void {
 
     const arg_parser = arg_parse.ArgParser.parse(args[1..]);
 
+    std.debug.print("Output Format: {s}\n", .{@tagName(arg_parser.output_format)});
+
     var input: []u8 = undefined;
     if (arg_parser.input_file_path) |input_file_path| {
         const file = try std.fs.cwd().openFile(input_file_path, .{});
