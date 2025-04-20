@@ -8,7 +8,7 @@ const std = @import("std");
 const lib = @import("zemml_lib");
 
 const arg_parse = @import("arg_parse.zig");
-const tokenizer = @import("tokenizer.zig");
+const tokenizer = @import("tex_tokenizer.zig");
 
 pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
