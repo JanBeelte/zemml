@@ -1,0 +1,11 @@
+Output Format: ast
+Tokens:
+MathInlineToggle($)
+Text(a)
+Symbol(+)
+Text(b)
+Symbol(=)
+Text(c)
+MathInlineToggle($)
+$a + b = c$
+ ----- EXIT CODE: 0 -----

@@ -1,0 +1,11 @@
+Output Format: ast
+Tokens:
+ControlSequence(\frac)
+GroupOpen({)
+Text(a)
+GroupClose(})
+GroupOpen({)
+Text(b)
+\frac{a}{b
+
+ ----- EXIT CODE: 0 -----

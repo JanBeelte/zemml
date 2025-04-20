@@ -1,0 +1,18 @@
+Output Format: ast
+Tokens:
+ControlSequence(\frac)
+GroupOpen({)
+Text(1)
+GroupClose(})
+GroupOpen({)
+ControlSequence(\frac)
+GroupOpen({)
+Text(2)
+GroupClose(})
+GroupOpen({)
+Text(3)
+GroupClose(})
+GroupClose(})
+\frac{1}{\frac{2}{3}}
+
+ ----- EXIT CODE: 0 -----

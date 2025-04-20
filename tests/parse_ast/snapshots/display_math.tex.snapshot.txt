@@ -1,0 +1,18 @@
+Output Format: ast
+Tokens:
+MathDisplayToggle($$)
+Text(x)
+Superscript(^)
+Text(2)
+Symbol(+)
+Text(y)
+Superscript(^)
+Text(2)
+Symbol(=)
+Text(z)
+Superscript(^)
+Text(2)
+MathDisplayToggle($$)
+$$x^2 + y^2 = z^2$$
+
+ ----- EXIT CODE: 0 -----

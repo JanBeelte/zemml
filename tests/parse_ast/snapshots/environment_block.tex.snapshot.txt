@@ -1,0 +1,24 @@
+Output Format: ast
+Tokens:
+EnvironmentBegin(\begin{aligned})
+Text(a)
+Alignment(&)
+Symbol(=)
+Text(b)
+Symbol(+)
+Text(c)
+NewlineCommand(\\)
+NewlineCommand(\\)
+Text(d)
+Alignment(&)
+Symbol(=)
+Text(e)
+Symbol(+)
+Text(f)
+EnvironmentEnd(\end{aligned})
+\begin{aligned}
+    a &= b + c \\\\
+    d &= e + f
+\end{aligned}
+    
+ ----- EXIT CODE: 0 -----

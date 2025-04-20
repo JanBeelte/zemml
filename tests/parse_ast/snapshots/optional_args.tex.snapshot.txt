@@ -1,0 +1,12 @@
+Output Format: ast
+Tokens:
+ControlSequence(\sqrt)
+OptionalArgOpen([)
+Text(3)
+OptionalArgClose(])
+GroupOpen({)
+Text(x)
+GroupClose(})
+\sqrt[3]{x}
+
+ ----- EXIT CODE: 0 -----

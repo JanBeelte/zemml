@@ -1,0 +1,14 @@
+Output Format: ast
+Tokens:
+Text(x)
+Symbol(~)
+Text(y)
+NewlineCommand(\\)
+Text(approx)
+Text(z)
+NewlineCommand(\\)
+Text(neq)
+Text(a)
+x ~ y \\approx z \\neq a
+
+ ----- EXIT CODE: 0 -----

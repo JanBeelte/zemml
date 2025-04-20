@@ -1,0 +1,14 @@
+Output Format: ast
+Tokens:
+TextMode(velocity)
+Symbol(=)
+ControlSequence(\frac)
+GroupOpen({)
+Text(d)
+GroupClose(})
+GroupOpen({)
+Text(t)
+GroupClose(})
+\text{velocity} = \frac{d}{t}
+
+ ----- EXIT CODE: 0 -----
