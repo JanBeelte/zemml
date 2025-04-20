@@ -28,8 +28,9 @@ pub fn help() noreturn {
         \\Usage: zemml [OPTIONS]
         \\
         \\ Options:
-        \\  --input, -i       Input file path, if not set stdin
-        \\  --output, -o      Output file path, if not set stdout
+        \\  --input, -i       Input file path (default: stdin)
+        \\  --output, -o      Output file path (default: stdout)
+        \\  --format, -f      Output format [ast|mathml] (default: mathml)
         \\  --help, -h        Print this help message
         \\
     , .{});

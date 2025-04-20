@@ -15,7 +15,7 @@ pub const ArgParser = struct {
     pub fn parse(args: []const []const u8) ArgParser {
         var input_file_path: ?[]const u8 = null;
         var output_file_path: ?[]const u8 = null;
-        var output_format: OutputFormat = .ast;
+        var output_format: OutputFormat = .mathml;
 
         const eql = std.mem.eql;
         const startsWith = std.mem.startsWith;
