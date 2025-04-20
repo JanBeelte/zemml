@@ -8,6 +8,7 @@ const std = @import("std");
 const lib = @import("zemml_lib");
 
 const arg_parse = @import("arg_parse.zig");
+const tokenizer = @import("tokenizer.zig");
 
 pub fn main() !void {
     // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
@@ -38,6 +39,11 @@ pub fn main() !void {
         input = try reader.readAllAlloc(gpa, std.math.maxInt(usize));
     }
     defer gpa.free(input);
+
+    const tokens = try tokenizer.do(gpa, input);
+    defer gpa.free(tokens);
+
+    tokenizer.print_tokens(tokens);
 
     if (arg_parser.output_file_path) |output_file_path| {
         var file = try std.fs.cwd().createFile(output_file_path, .{});
